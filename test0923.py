@@ -37,7 +37,7 @@ get_cid = 'https://www.bilibili.com/widget/getPageList?aid='
 
 
 # 增加重连次数
-requests.adapters.DEFAULT_RETRIES = 5
+# requests.adapters.DEFAULT_RETRIES = 6
 
 
 # 获取视频列表
@@ -58,6 +58,9 @@ def VedioList(mid: str):
     # 获取所有的视频信息
     getVideoInfo(aid_list)
     return None
+
+
+cookie = "_uuid=85979CF5-D142-7D79-4F28-79EED7CE53E046774infoc; buvid3=E0CCA607-D1C9-4683-8C47-C43E983BCFBC155807infoc; LIVE_BUVID=AUTO3615664665494812; CURRENT_FNVAL=16; sid=l7m1q4lb; stardustvideo=1; laboratory=1-1; rpdid=|(J|)Y)|uuRk0J'ulYYlRRR)Y; CURRENT_QUALITY=64; UM_distinctid=16cce9f6232864-0ddd80629fd66b-1a201708-1fa400-16cce9f623345f; _ga=GA1.2.2092396846.1566834688"
 
 
 # 获取视频aid列表
@@ -81,7 +84,7 @@ def getVideoInfo(aid_list: list):
             print('av号:', i)
             print('**********************')
             res_info = requests.get(video_info + str(i), headers={'User-Agent': user_agent}, timeout=30)
-            res_tags = requests.get(video_tags + str(i), headers={'User-Agent': user_agent}, timeout=30)
+            res_tags = requests.get(video_tags + str(i), headers={'User-Agent': user_agent, 'Cookie': cookie}, timeout=30)
             info = json.loads(res_info.content)
             sol_tags = json.loads(res_tags.content)
             # 数据
@@ -110,10 +113,10 @@ def getVideoInfo(aid_list: list):
             mid = info['data']['owner']['mid']
             # 标签
             tags = sol_tags['data']
-            tag_list = []
+            tag_list = ""
             for tag in tags:
-                tag_list.append(tag['tag_name'])
-            tag_list = json.dumps(tag_list)    # 标签列表 json
+                tag_list = tag_list + "++" + tag['tag_name']
+#             tag_list = json.dumps(tag_list)    # 标签列表 json
             print(tag_list)
             # 获取cid列表
             cid_list = getCid(str(i))
