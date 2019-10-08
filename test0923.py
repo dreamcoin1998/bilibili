@@ -8,11 +8,7 @@ import multiprocessing as mp
 
 
 user_agent = random.choice([
-            "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.1 (KHTML, like Gecko) Chrome/22.0.1207.1 Safari/537.1"
-            "Mozilla/5.0 (X11; CrOS i686 2268.111.0) AppleWebKit/536.11 (KHTML, like Gecko) Chrome/20.0.1132.57 Safari/536.11",
-            "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/536.6 (KHTML, like Gecko) Chrome/20.0.1092.0 Safari/536.6",
-            "Mozilla/5.0 (Windows NT 6.2) AppleWebKit/536.6 (KHTML, like Gecko) Chrome/20.0.1090.0 Safari/536.6",
-            "Mozilla/5.0 (Windows NT 6.2; WOW64) AppleWebKit/537.1 (KHTML, like Gecko) Chrome/19.77.34.5 Safari/537.1"
+            "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/73.0.3683.86 Safari/537.36"
             ])
 
 
@@ -29,7 +25,7 @@ video = 'https://space.bilibili.com/ajax/member/getSubmitVideos?mid=&page=1&page
 # 视频信息
 video_info = 'https://api.bilibili.com/x/web-interface/view?aid='
 # 视频标签
-video_tags = 'http://api.bilibili.com/x/tag/archive/tags?aid='
+video_tags = 'https://api.bilibili.com/x/tag/archive/tags?aid='
 # 弹幕 arg: cid
 danmu = 'https://api.bilibili.com/x/v1/dm/list.so?oid='
 # 获取cid arg: aid(av号)
@@ -60,9 +56,6 @@ def VedioList(mid: str):
     return None
 
 
-cookie = "_uuid=85979CF5-D142-7D79-4F28-79EED7CE53E046774infoc; buvid3=E0CCA607-D1C9-4683-8C47-C43E983BCFBC155807infoc; LIVE_BUVID=AUTO3615664665494812; CURRENT_FNVAL=16; sid=l7m1q4lb; stardustvideo=1; laboratory=1-1; rpdid=|(J|)Y)|uuRk0J'ulYYlRRR)Y; CURRENT_QUALITY=64; UM_distinctid=16cce9f6232864-0ddd80629fd66b-1a201708-1fa400-16cce9f623345f; _ga=GA1.2.2092396846.1566834688"
-
-
 # 获取视频aid列表
 def getVideoList(mid, count):
     # 总页数
@@ -84,7 +77,7 @@ def getVideoInfo(aid_list: list):
             print('av号:', i)
             print('**********************')
             res_info = requests.get(video_info + str(i), headers={'User-Agent': user_agent}, timeout=30)
-            res_tags = requests.get(video_tags + str(i), headers={'User-Agent': user_agent, 'Cookie': cookie}, timeout=30)
+            res_tags = requests.get(video_tags + str(i), headers={'User-Agent': user_agent}, timeout=10)
             info = json.loads(res_info.content)
             sol_tags = json.loads(res_tags.content)
             # 数据
@@ -122,24 +115,27 @@ def getVideoInfo(aid_list: list):
             cid_list = getCid(str(i))
             print('cid:', cid_list)
             # 弹幕列表
-            danmu_list = []
+            danmu_list = ''
             # 根据cid获取弹幕XML文件,并解析然后添加到弹幕列表
             for j in cid_list:
-                res_danmu = requests.get(danmu + j, headers={'User-Agent': user_agent}, timeout=30)
+                res_danmu = requests.get(danmu + j, headers={'User-Agent': user_agent}, timeout=10)
                 dm = parseXml(res_danmu.content, j)
-                danmu_list = danmu_list + dm
+                for mu in dm:
+                    danmu_list = danmu_list + '++' + mu
             # 弹幕列表 json类型
             # print(str(danmu_list))
-            dm = json.dumps(danmu_list).replace("'", '')
+            dm = danmu_list.replace("'", "")
+            print('弹幕列表：', dm)
             # danmu_json = json.dumps(danmu_list)
             # print(danmu_list)
             # danmu_data = '无'
             # 获取评论列表
             com_list = getAllCommentList(i)
+            print('评论列表：', com_list)
             if com_list is not None:
-                com_list_json = json.dumps(com_list).replace("'", '')    # 评论列表 json类型
+                com_list_json = com_list.replace("'", '')    # 评论列表 json类型
             else:
-                com_list_json = json.dumps('无').replace("'", '')
+                com_list_json = ''
             # com_list_json = '无'
             print('res_info:', res_info.status_code)
             print('res_tags', res_tags.status_code)
@@ -148,7 +144,7 @@ def getVideoInfo(aid_list: list):
             # data.append([title, upstat, like, coins, favorite, share, reply, danmau_num, ctime, mid, tag_list, danmu_json, com_list_json])
             try:
                 # 连接数据库
-                db = connector.connect(host='localhost', user='gaojunbin', passwd='18759799353', database='bilibili')
+                db = connector.connect(host='localhost', user='gaojunbin', passwd='18759799353', database='bilibili', charset='utf8mb4')
                 # 获取游标
                 yb = db.cursor()
                 yb.execute("INSERT INTO video(title, upstat, likes, coins, favorite, share, reply, ctime, tags, uid, danmu_num, danmu, comment) VALUES('%s', %d, %d, %d, %d, %d, %d, %d, '%s', %d, %d, '%s', '%s');" % (title, int(upstat), int(like), int(coins), int(favorite), int(share), int(reply), ctime, tag_list, int(mid), int(danmau_num), dm, com_list_json))
@@ -195,8 +191,10 @@ def parseXml(xml_file, cid):
     return danmu
 
 
+# 获取第num页内容
 def get_reply(num, step, q, aid):
-    comment_list = []
+    print('执行')
+    comment_list = ''
     for n in range(num+1, num + 1 + step):
         time.sleep(random.randint(3, 4) / 10.1)  # 延迟时间，避免太快 ip 被封
         print('评论第%d页' % n)
@@ -209,24 +207,29 @@ def get_reply(num, step, q, aid):
         json_text_list = json.loads(text)
         if json_text_list["data"]["replies"] is not None:
             for i in json_text_list["data"]["replies"]:
-                comment_list.append(i["content"]["message"])
+                comment_list = comment_list + '++' + i["content"]["message"]
         # print(comment_list)
     q.put(comment_list)
 
 
 # 获取评论列表
 def getAllCommentList(aid):
-    url = "http://api.bilibili.com/x/reply?type=1&oid=" + str(aid) + "&pn=1&nohot=1&sort=0"
+    print('运行')
+    print('aid:', aid)
+    url = "https://api.bilibili.com/x/reply?type=1&oid=" + str(aid) + "&pn=1&nohot=1&sort=0"
     r = requests.get(url, headers={'User-Agent': user_agent}, timeout=30)
     numtext = r.text
+    print('文', r.headers)
     json_text = json.loads(numtext)
+    # print(json_text)
     print(json_text['code'] == 12002)
+    print('状态码：', json_text['code'])
     if json_text['code'] != 12002:
         commentsNum = json_text["data"]["page"]["count"]
         page = commentsNum // 20 + 2
         print(page)
+        num = []
         if page >= 4:
-            num = []
             pj = page // 4
             for i in range(4):
                 s = pj * i
@@ -236,7 +239,7 @@ def getAllCommentList(aid):
             for i in range(4):
                 p = mp.Process(target=get_reply, args=(num[i], pj, q, aid))
                 p.start()
-            reply = []
+            reply = ''
             for i in range(4):
                 # time.sleep(3)
                 # print(q.empty())
@@ -244,7 +247,7 @@ def getAllCommentList(aid):
                     # print('等待第', i, '次')
                     time.sleep(2)
                     continue
-                reply = reply + q.get()
+                reply = reply + '++' + q.get()
             print(reply)
             return reply
         else:
@@ -267,4 +270,4 @@ def getAllCommentList(aid):
 
 
 if __name__ == '__main__':
-    VedioList('777536')
+    VedioList('562197')
