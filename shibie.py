@@ -27,6 +27,7 @@ with open('蕾丝.csv', 'w', newline='')as f:
 	f_csv.writerow(header)
 	# 结果写到csv文件
 	for index, res in enumerate(jieguo):
+		### 初始化变量
 		discover = '否'  # 是否出现指定词语
 		result = '无'  # 识别结果
 		hang = ()
